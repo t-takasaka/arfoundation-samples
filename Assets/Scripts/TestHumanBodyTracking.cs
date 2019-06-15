@@ -1,18 +1,15 @@
 using System;
 using System.Text;
-using System.Collections.Generic;
-using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.XR.ARFoundation;
-using UnityEngine.XR.ARSubsystems;
 
-using Object = UnityEngine.Object;
-
+/// <summary>
+/// Simple script to spawn and render spheres at each joint position.
+/// </summary>
 public class TestHumanBodyTracking : MonoBehaviour
 {
-    // 3D joint skeleton
+    /* 3D joint skeleton
     enum JointIndices
     {
         Invalid = -1,
@@ -110,91 +107,159 @@ public class TestHumanBodyTracking : MonoBehaviour
         left_eyeLowerLid_joint = 91, // parent: left_eye_joint [89]
         left_eyeBall_joint = 92, // parent: left_eye_joint [89]
     }
+    */
 
     [SerializeField]
     [Tooltip("The ARHumanBodyManager which will produce frame events.")]
     ARHumanBodyManager m_HumanBodyManager;
 
-     /// <summary>
+    [SerializeField]
+    [Tooltip("Log all Human Body Changed events.")]
+    bool m_VerboseLogging;
+
+    [SerializeField]
+    [Tooltip("UI to show current number of bodies being tracked.")]
+    Text m_TextUI;
+
+    Transform[] m_JointTransforms = new Transform[93];
+    Transform m_RootTransform;
+    int m_CurrentBodiesTracked;
+
+    /// <summary>
     /// Get or set the <c>ARHumanBodyManager</c>.
     /// </summary>
     public ARHumanBodyManager humanBodyManager
     {
         get { return m_HumanBodyManager; }
-        set { m_HumanBodyManager = value; }
+        set
+        {
+            Debug.Assert(value != null, "Human Body Manager is required");
+            
+            if (value == m_HumanBodyManager)
+                return;
+            
+            m_HumanBodyManager.humanBodiesChanged -= OnHumanBodiesChanged;
+            
+            m_HumanBodyManager = value;
+            
+            m_HumanBodyManager.humanBodiesChanged += OnHumanBodiesChanged;
+        }
     }
 
-    [SerializeField]
-    GameObject m_HeadPrefab;
-
-    public GameObject headPrefab
+    public bool verboseLogging
     {
-        get { return m_HeadPrefab; }
-        set { m_HeadPrefab = value; }
+        get { return m_VerboseLogging; }
+        set { m_VerboseLogging = value; }
+    }
+
+    public Text textUI
+    {
+        get { return m_TextUI; }
+        set { m_TextUI = value; }
     }
 
     void OnEnable()
     {
-        Debug.Assert(m_HumanBodyManager != null, "human body manager is required");
+        Debug.Assert(humanBodyManager != null, "human body manager is required");
         m_HumanBodyManager.humanBodiesChanged += OnHumanBodiesChanged;
+    }
+
+    void Start()
+    {
+        CreateRig();
     }
 
     void OnDisable()
     {
-        Debug.Assert(m_HumanBodyManager != null, "human body manager is required");
+        Debug.Assert(humanBodyManager != null, "human body manager is required");
         m_HumanBodyManager.humanBodiesChanged -= OnHumanBodiesChanged;
     }
 
-    void CreateOrUpdateHead(ARHumanBody arBody)
+    void CreateRig()
     {
-        if (m_HeadPrefab == null)
+        for (var i = 0; i < m_JointTransforms.Length; i++)
         {
-            Debug.Log("no prefab found");
-            return;
+            m_JointTransforms[i] = new GameObject().transform;
+            var childTransform = GameObject.CreatePrimitive(PrimitiveType.Sphere).transform;
+            childTransform.SetParent(m_JointTransforms[i]);
+            childTransform.localScale = new Vector3(0.01f, 0.01f, 0.01f);
         }
+    }
 
-        Transform rootTransform = arBody.transform;
-        if (rootTransform == null)
+    void AssignRigTransforms(ARHumanBody arBody)
+    {
+        m_RootTransform = arBody.transform;
+        if (m_RootTransform == null)
         {
             Debug.Log("no root transform found for ARHumanBody");
             return;
         }
 
-        Transform headTransform;
-        if (rootTransform.childCount <= 1)
+        if (m_RootTransform.childCount <= 1)
         {
-            GameObject go  = Instantiate(m_HeadPrefab, rootTransform);
-            headTransform = go.transform;
+            for (var i = 1; i < arBody.joints.Length; i++)
+            {
+                m_JointTransforms[i].SetParent(m_RootTransform);
+            }
         }
         else
         {
-            headTransform = rootTransform.GetChild(1);
+            m_JointTransforms[1].SetParent(m_RootTransform);
         }
+    }
 
-        XRHumanBodyJoint joint = arBody.joints[(int)JointIndices.head_joint];
-        headTransform.localScale = joint.anchorScale;
-        headTransform.localRotation = joint.anchorPose.rotation;
-        headTransform.localPosition = joint.anchorPose.position;
+    void UpdateRig(ARHumanBody arBody)
+    {
+        for (var i = 1; i < arBody.joints.Length; i++)
+        {
+            var joint = arBody.joints[i];
+            m_JointTransforms[i].localScale = joint.anchorScale;
+            m_JointTransforms[i].localRotation = joint.anchorPose.rotation;
+            m_JointTransforms[i].localPosition = joint.anchorPose.position;
+        }
     }
 
     void OnHumanBodiesChanged(ARHumanBodiesChangedEventArgs eventArgs)
     {
-        StringBuilder sb = new StringBuilder();
+        if (verboseLogging)
+            LogHumanBodiesChanged(eventArgs);
+        
+        foreach (var humanBody in eventArgs.added)
+        {
+            AssignRigTransforms(humanBody);
+            m_CurrentBodiesTracked++;
+        }
 
+        foreach (var humanBody in eventArgs.updated)
+        {
+            UpdateRig(humanBody);
+        }
+        
+        foreach (var humanBody in eventArgs.removed)
+        {
+            m_CurrentBodiesTracked--;
+        }
+        
+        var sb = new StringBuilder();
+        sb.AppendFormat("Number of bodies being tracked: {0}", m_CurrentBodiesTracked);
+        textUI.text = sb.ToString();
+    }
+
+    static void LogHumanBodiesChanged(ARHumanBodiesChangedEventArgs eventArgs)
+    {
+        var sb = new StringBuilder();
+        
         sb.Append("OnHumanBodiesChanged\n");
-
         sb.AppendFormat("   added[{0}]:\n", eventArgs.added.Count);
         foreach (var humanBody in eventArgs.added)
         {
             sb.AppendFormat("      human body: {0}\n", humanBody.ToString());
-            CreateOrUpdateHead(humanBody);
         }
 
         sb.AppendFormat("   updated[{0}]:\n", eventArgs.updated.Count);
         foreach (var humanBody in eventArgs.updated)
         {
             sb.AppendFormat("      human body: {0}\n", humanBody.ToString());
-            CreateOrUpdateHead(humanBody);
         }
 
         sb.AppendFormat("   removed[{0}]:\n", eventArgs.removed.Count);
