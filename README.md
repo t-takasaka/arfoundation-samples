@@ -39,3 +39,15 @@ If you want to checkout the latest and greatest features from Apple, use this `m
 3. Open your choice of sample scene.
 
 4. See the [AR Foundation Documentation](https://docs.unity3d.com/Packages/com.unity.xr.arfoundation@latest?preview=1) for usage instructions and more information.
+
+## License
+
+TestHumanBodyTrackingAvatar sample uses VRoid and UniVRM.
+
+- VRoid
+
+https://vroid.pixiv.net/
+
+- UniVRM
+
+https://github.com/vrm-c/UniVRM/releases

@@ -68,6 +68,9 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/Scenes/UX/SampleUXScene.unity
     guid: 3b42d67a72bbc4004bf713db0e312326
+  - enabled: 1
+    path: Assets/Scenes/HumanSegmentation/HumanBodyTracking3D_Avatar.unity
+    guid: a7019e0999e99b64eb07836b70f9e376
   m_configObjects:
     com.unity.xr.arkit.PlayerSettings: {fileID: 11400000, guid: 2d5fb8e61571b4e3897f221189089fd6,
       type: 2}

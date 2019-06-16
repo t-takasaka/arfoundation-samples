@@ -197,7 +197,7 @@ public class TestHumanBodyTrackingAvatar : MonoBehaviour
     bool m_Initialized = false;
 
     [SerializeField]
-    float m_SrcScale = 0.005f;
+    float m_SrcScale = 0.05f;
 
     [SerializeField]
     float m_DestScale = 1.0f;
@@ -398,6 +398,8 @@ public class TestHumanBodyTrackingAvatar : MonoBehaviour
         }
 
         if(BuildHumanAvatar(rootSrcBone, skeletonBones, humanBones)){ m_Initialized = true; }
+
+        EnableUpdateWhenOffscreen();
     }
 
     private void Update()
@@ -452,12 +454,10 @@ public class TestHumanBodyTrackingAvatar : MonoBehaviour
             (curerntBoneIndex >= JointIndices.spine_1_joint && curerntBoneIndex <= JointIndices.spine_3_joint))
         { 
             currentBoneRotation *= lowerBodyRotateY;
-
         }
         if(curerntBoneIndex >= JointIndices.spine_4_joint && curerntBoneIndex <= JointIndices.spine_7_joint) 
         { 
             currentBoneRotation *= upperBodyRotateY;
-
         }
         if((curerntBoneIndex >= JointIndices.neck_1_joint && curerntBoneIndex <= JointIndices.neck_4_joint) ||
             curerntBoneIndex == JointIndices.head_joint) 
@@ -543,7 +543,7 @@ public class TestHumanBodyTrackingAvatar : MonoBehaviour
         Debug.Log(sb.ToString());
     }
 
-    float m_PosX = 0.0f, m_PosY = 0.0f, m_PosZ = -10.0f;
+    float m_PosX = 0.0f, m_PosY = 0.0f, m_PosZ = 5.0f;
     private void OnGUI()
     {
         GUI.color = Color.white;
@@ -558,6 +558,15 @@ public class TestHumanBodyTrackingAvatar : MonoBehaviour
 
         GUILayout.EndVertical();
     }
+    private void EnableUpdateWhenOffscreen(){
+        foreach (GameObject obj in FindObjectsOfType(typeof(GameObject))){
+            if (!obj.activeInHierarchy) { continue; }
 
+            var skinnedMeshRenderers = obj.GetComponents<SkinnedMeshRenderer>();
+            foreach (var skinnedMeshRenderer in skinnedMeshRenderers){
+                skinnedMeshRenderer.updateWhenOffscreen = true;
+            }
+        }
+    }
 
 }
